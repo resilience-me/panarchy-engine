@@ -165,9 +165,7 @@ func (p *Panarchy) blockProducer(chain consensus.ChainHeaderReader, header *type
 		return err
 	}
 
-	header.Extra = make([]byte, 129)
-	copy(header.Extra[:32], newTrieRoot.Bytes())
-	copy(header.Extra[32:64], onion.Hash.Bytes())
+	header.Extra = append(newTrieRoot.Bytes(), onion.Hash.Bytes()...)
 
 	return nil
 }
