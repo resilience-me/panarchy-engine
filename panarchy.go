@@ -22,7 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 const (
-	compensateForPossibleReorg = 10
+	compensateForPossibleReorg = 20
 )
 
 type StorageSlots struct {
@@ -146,7 +146,7 @@ func (p *Panarchy) blockProducer(chain consensus.ChainHeaderReader, header *type
 	}
 	trieRoot := common.BytesToHash(parentHeader.Extra[: 32])
 
-	trie, err := p.state.Database().OpenTrie(trieRoot)
+	trie, err := state.Database().OpenTrie(trieRoot)
 	if err != nil {
 		return fmt.Errorf("Failed to open trie: %v", err)
 	}
@@ -168,8 +168,6 @@ func (p *Panarchy) blockProducer(chain consensus.ChainHeaderReader, header *type
 	header.Extra = make([]byte, 129)
 	copy(header.Extra[:32], newTrieRoot.Bytes())
 	copy(header.Extra[32:64], onion.Hash.Bytes())
-
-	header.Root = p.state.IntermediateRoot(true)
 
 	return nil
 }
@@ -258,6 +256,10 @@ func (p *Panarchy) updateAndCloseTrie(signer common.Address, onion *OnionStored,
 	if err := triedb.Update(newTrieRoot, trieRoot, blockNumber, mergedNodes, &triestate.Set{}); err != nil {
 		return common.Hash{}, fmt.Errorf("Failed to store tree to database", err)
 	}
+	if err := triedb.Commit(newTrieRoot, false); err != nil {
+		return common.Hash{}, fmt.Errorf("Failed to commit tree to database", err)
+	}
+
 	return newTrieRoot, nil
 }
 
