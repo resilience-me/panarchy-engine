@@ -87,6 +87,7 @@ func (p *Panarchy) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 	if header.Time < uint64(time.Now().Unix()) {
 		header.Time = uint64(time.Now().Unix())
 	}
+	header.Difficulty = common.Big1
 	return nil
 }
 
@@ -132,7 +133,7 @@ func (p *Panarchy) Seal(chain consensus.ChainHeaderReader, block *types.Block, r
 				delay += time.Duration(p.config.Deadline) * time.Second
 			}
 		}
-		header.Difficulty = new(big.Int).Sub(common.Big1, i)
+		header.Difficulty.Sub(header.Difficulty, i)
 
 		headerRlp := new(bytes.Buffer)
 		if err := rlp.Encode(headerRlp, header); err != nil {
