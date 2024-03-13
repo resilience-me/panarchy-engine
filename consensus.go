@@ -107,6 +107,7 @@ func (p *Panarchy) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header
 		return nil, err
 	}
 	mutations.AccumulateRewards(chain.Config(), state, header, uncles)
+	header.Root = state.IntermediateRoot(true)
 	return types.NewBlock(header, txs, uncles, receipts, trie.NewStackTrie(nil)), nil
 }
 
