@@ -143,7 +143,7 @@ func (p *Panarchy) Seal(chain consensus.ChainHeaderReader, block *types.Block, r
 		if err != nil {
 			log.Error("failed to sign the header for account %s: %v", p.signer.Hex(), err)
 		}
-		copy(header.Extra[64:], sig)
+		header.Extra = append(header.Extra, sig...)
 
 		select {
 			case results <- block.WithSeal(header):
@@ -156,17 +156,20 @@ func (p *Panarchy) Seal(chain consensus.ChainHeaderReader, block *types.Block, r
 }
 
 func (p *Panarchy) SealHash(header *types.Header) (hash common.Hash) {
-	return SealHash(header, true)
+
+	sealHeader := *header
+	sealHeader.Difficulty = nil
+
+	if len(sealHeader.Extra) == 129 { 
+		sealHeader.Extra = sealHeader.Extra[:64]
+	}
+	return SealHash(&sealHeader)
 }
 
-func SealHash(header *types.Header, sealhashForWorker bool) (hash common.Hash) {
+func SealHash(sealHeader *types.Header) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
-	sealHeader := *header
-	sealHeader.Extra = sealHeader.Extra[:len(sealHeader.Extra)-crypto.SignatureLength]
-	if sealhashForWorker == true {
-		sealHeader.Difficulty = nil
-	}
-	if err := rlp.Encode(hasher, &sealHeader); err != nil {
+
+	if err := rlp.Encode(hasher, sealHeader); err != nil {
 		panic("can't encode: " + err.Error())
 	}
 	hasher.(crypto.KeccakState).Read(hash[:])
@@ -178,8 +181,10 @@ func (p *Panarchy) Author(header *types.Header) (common.Address, error) {
 		return common.Address{}, errMissingExtraData
 	}
 	signature := header.Extra[64:]
+	sealHeader := *header
+	sealHeader.Extra = header.Extra[:64]
 
-	pubkey, err := crypto.Ecrecover(SealHash(header, false).Bytes(), signature)
+	pubkey, err := crypto.Ecrecover(SealHash(&sealHeader).Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err
 	}
