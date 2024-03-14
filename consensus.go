@@ -29,15 +29,15 @@ var (
 )
 
 func (p *Panarchy) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
-	return p.verifyHeader(chain, header)
+	return p.verifyHeader(chain, header, nil)
 }
 func (p *Panarchy) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{})
 	results := make(chan error, len(headers))
 
 	go func() {
-		for _, header := range headers {
-			err := p.verifyHeader(chain, header)
+		for i, header := range headers {
+			err := p.verifyHeader(chain, header, headers[:i])
 
 			select {
 			case <-abort:
@@ -48,7 +48,7 @@ func (p *Panarchy) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	}()
 	return abort, results
 }
-func (p *Panarchy) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header) error {
+func (p *Panarchy) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
 	if header.Time > uint64(time.Now().Unix()) {
 		return consensus.ErrFutureBlock
 	}
@@ -56,7 +56,12 @@ func (p *Panarchy) verifyHeader(chain consensus.ChainHeaderReader, header *types
 	if number == 0 {
 		return nil
 	}
-	parent := chain.GetHeader(header.ParentHash, number-1)
+	var parent *types.Header
+	if len(parents) > 0 {
+		parent = parents[len(parents)-1]
+	} else {
+		parent = chain.GetHeader(header.ParentHash, number-1)
+	}
 
 	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
